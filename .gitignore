@@ -1,0 +1,12 @@
+.next/
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+*.tsbuildinfo
+.codex/
+.agents/
+.superpowers/
+.vscode/
