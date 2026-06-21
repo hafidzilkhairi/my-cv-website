@@ -1,0 +1,90 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Build Check
+        run: |
+          echo "Checking application build suitability..."
+          npm ci
+          npm run build
+
+  deploy-staging:
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: self-hosted
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Trigger Kaniko Build in K3s
+        run: |
+          # 1. Create a namespace for build if it doesn't exist
+          kubectl create namespace build --dry-run=client -o yaml | kubectl apply -f -
+          
+          # 2. Generate the Kaniko Job manifest
+          # We mount the workspace hostPath so Kaniko doesn't need external git access.
+          cat <<EOF > kaniko-job.yaml
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: kaniko-build-homepage-${{ github.sha }}
+            namespace: build
+          spec:
+            template:
+              spec:
+                containers:
+                - name: kaniko
+                  image: gcr.io/kaniko-project/executor:latest
+                  args:
+                  - "--context=dir:///workspace"
+                  - "--dockerfile=Dockerfile"
+                  - "--destination=localhost:30500/homepage:${{ github.sha }}"
+                  - "--insecure"
+                  volumeMounts:
+                  - name: project-source
+                    mountPath: /workspace
+                restartPolicy: Never
+                volumes:
+                - name: project-source
+                  hostPath:
+                    path: ${{ github.workspace }}
+          EOF
+          
+          # 3. Apply the Job and wait for completion
+          kubectl apply -f kaniko-job.yaml
+          echo "Waiting for Kaniko build to finish..."
+          kubectl wait --namespace build --for=condition=complete --timeout=15m job/kaniko-build-homepage-${{ github.sha }}
+          
+          # 4. Clean up the Job resource
+          kubectl delete -f kaniko-job.yaml
+
+      - name: Update GitOps Service Catalog
+        run: |
+          # To update the service-catalog, we need a GitHub Personal Access Token (PAT).
+          # Ensure you add a Repository Secret called 'CATALOG_PAT' with 'repo' scope.
+          git config --global user.email "runner@hafidzilkhairi.my.id"
+          git config --global user.name "GitHub Actions Runner"
+          
+          echo "Cloning service-catalog GitOps repository..."
+          git clone https://x-access-token:${{ secrets.CATALOG_PAT }}@github.com/hafidzilkhairi/service-catalog.git
+          cd service-catalog/staging/homepage
+          
+          # Update the kustomization.yaml image tag to the new git commit SHA
+          sed -i "s/newTag: .*/newTag: ${{ github.sha }}/" kustomization.yaml
+          
+          git add kustomization.yaml
+          git commit -m "ci: update homepage image tag to ${{ github.sha }} [skip ci]"
+          git push origin main
