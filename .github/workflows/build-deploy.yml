@@ -79,8 +79,8 @@ jobs:
           git config --global user.name "GitHub Actions Runner"
           
           echo "Cloning service-catalog GitOps repository..."
-          git clone https://x-access-token:${{ secrets.CATALOG_PAT }}@github.com/hafidzilkhairi/service-catalog.git
-          cd service-catalog/staging/homepage
+          git clone https://x-access-token:${{ secrets.CATALOG_PAT }}@github.com/hafidzilkhairi/my-setup-service-catalog.git
+          cd my-setup-service-catalog/staging/homepage
           
           # Update the kustomization.yaml image tag to the new git commit SHA
           sed -i "s/newTag: .*/newTag: ${{ github.sha }}/" kustomization.yaml
