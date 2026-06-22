@@ -95,6 +95,7 @@ jobs:
           git config --global user.name "GitHub Actions Runner"
           
           echo "Cloning service-catalog GitOps repository..."
+          rm -rf my-setup-service-catalog
           git clone https://x-access-token:${{ secrets.CATALOG_PAT }}@github.com/hafidzilkhairi/my-setup-service-catalog.git
           cd my-setup-service-catalog/staging/homepage
           
