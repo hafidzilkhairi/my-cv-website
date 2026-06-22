@@ -67,7 +67,7 @@ jobs:
                   args:
                   - "--context=dir:///workspace"
                   - "--dockerfile=Dockerfile"
-                  - "--destination=localhost:30500/homepage:${{ env.REVISION }}"
+                  - "--destination=registry.registry.svc.cluster.local:5000/homepage:${{ env.REVISION }}"
                   - "--insecure"
                   volumeMounts:
                   - name: project-source
@@ -99,7 +99,7 @@ jobs:
           cd my-setup-service-catalog/staging/homepage
           
           # Update the release.yaml image and revision annotation
-          sed -i "s|image: localhost:30500/homepage:.*|image: localhost:30500/homepage:${{ env.REVISION }}|" release.yaml
+          sed -i "s|image: registry.registry.svc.cluster.local:5000/homepage:.*|image: registry.registry.svc.cluster.local:5000/homepage:${{ env.REVISION }}|" release.yaml
           sed -i "s|revision: .*|revision: ${{ env.REVISION }}|" release.yaml
           
           git add release.yaml
