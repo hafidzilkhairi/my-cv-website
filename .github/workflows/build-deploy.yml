@@ -23,6 +23,10 @@ jobs:
 
       - name: Run Build Check
         run: |
+          echo "Checking disk space..."
+          df -h
+          echo "Cleaning npm cache..."
+          npm cache clean --force
           echo "Checking application build suitability..."
           npm ci
           npm run build
