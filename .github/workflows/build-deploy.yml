@@ -29,6 +29,12 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Set Revision Env Var
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          TIMESTAMP=$(date +'%Y%m%d-%H%M%S')
+          echo "REVISION=${SHORT_SHA}-${TIMESTAMP}" >> $GITHUB_ENV
+
       - name: Trigger Kaniko Build in K3s
         run: |
           # 1. Create a namespace for build if it doesn't exist
@@ -51,7 +57,7 @@ jobs:
                   args:
                   - "--context=dir:///workspace"
                   - "--dockerfile=Dockerfile"
-                  - "--destination=localhost:30500/homepage:${{ github.sha }}"
+                  - "--destination=localhost:30500/homepage:${{ env.REVISION }}"
                   - "--insecure"
                   volumeMounts:
                   - name: project-source
@@ -82,9 +88,10 @@ jobs:
           git clone https://x-access-token:${{ secrets.CATALOG_PAT }}@github.com/hafidzilkhairi/my-setup-service-catalog.git
           cd my-setup-service-catalog/staging/homepage
           
-          # Update the kustomization.yaml image tag to the new git commit SHA
-          sed -i "s/newTag: .*/newTag: ${{ github.sha }}/" kustomization.yaml
+          # Update the release.yaml image and revision annotation
+          sed -i "s|image: localhost:30500/homepage:.*|image: localhost:30500/homepage:${{ env.REVISION }}|" release.yaml
+          sed -i "s|revision: .*|revision: ${{ env.REVISION }}|" release.yaml
           
-          git add kustomization.yaml
-          git commit -m "ci: update homepage image tag to ${{ github.sha }} [skip ci]"
+          git add release.yaml
+          git commit -m "ci: update homepage image and revision to ${{ env.REVISION }} [skip ci]"
           git push origin main
