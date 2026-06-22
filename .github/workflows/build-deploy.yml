@@ -89,14 +89,17 @@ jobs:
 
       - name: Update GitOps Service Catalog
         run: |
-          # To update the service-catalog, we need a GitHub Personal Access Token (PAT).
-          # Ensure you add a Repository Secret called 'CATALOG_PAT' with 'repo' scope.
           git config --global user.email "runner@hafidzilkhairi.my.id"
           git config --global user.name "GitHub Actions Runner"
           
+          echo "Extracting SSH key from Kubernetes..."
+          kubectl get secret service-catalog-repo -n argocd -o jsonpath='{.data.sshPrivateKey}' | base64 -d > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+          export GIT_SSH_COMMAND="ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no"
+          
           echo "Cloning service-catalog GitOps repository..."
           rm -rf my-setup-service-catalog
-          git clone https://x-access-token:${{ secrets.CATALOG_PAT }}@github.com/hafidzilkhairi/my-setup-service-catalog.git
+          git clone git@github.com:hafidzilkhairi/my-setup-service-catalog.git
           cd my-setup-service-catalog/staging/homepage
           
           # Update the release.yaml image and revision annotation
@@ -106,3 +109,7 @@ jobs:
           git add release.yaml
           git commit -m "ci: update homepage image and revision to ${{ env.REVISION }} [skip ci]"
           git push origin main
+          
+          # Clean up
+          rm -f /tmp/deploy_key
+
